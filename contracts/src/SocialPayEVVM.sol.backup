@@ -24,7 +24,7 @@ interface IEVVMNameService {
     ) external view returns (bool);
 }
 
-contract SocialPayEVVMIntegrated is Ownable, EIP712 {
+contract SocialPayEVVM is Ownable, EIP712 {
     using ECDSA for bytes32;
     using MessageHashUtils for bytes32;
 
@@ -32,13 +32,22 @@ contract SocialPayEVVMIntegrated is Ownable, EIP712 {
     IEVVMCore public immutable evvmCore;
     IEVVMNameService public immutable nameService;
 
+    // EIP-712 Type Hash for PaymentIntent
     bytes32 public constant PAYMENT_INTENT_TYPEHASH =
         keccak256(
             "PaymentIntent(string handle,string platform,uint256 amount,uint256 asyncNonce,uint256 deadline)"
         );
 
+    // Handle ownership: platform => handle => wallet
     mapping(string => mapping(string => address)) public handleToWallet;
+
+    // Pending balances: platform => handle => amount
     mapping(string => mapping(string => uint256)) public pendingBalances;
+
+    // Used async nonces: user => nonce => used
+    mapping(address => mapping(uint256 => bool)) public usedNonces;
+
+    // Executor whitelist
     mapping(address => bool) public executors;
 
     event HandleClaimed(
@@ -70,13 +79,15 @@ contract SocialPayEVVMIntegrated is Ownable, EIP712 {
         pyusd = IERC20(_pyusd);
         evvmCore = IEVVMCore(_evvmCore);
         nameService = IEVVMNameService(_nameService);
+
+        // Add deployer as executor by default
         executors[msg.sender] = true;
     }
 
     modifier onlyExecutor() {
         require(
             executors[msg.sender] || msg.sender == owner(),
-            "Not authorized"
+            "Not authorized executor"
         );
         _;
     }
@@ -91,7 +102,7 @@ contract SocialPayEVVMIntegrated is Ownable, EIP712 {
         emit ExecutorRemoved(executor);
     }
 
-    // Legacy payment (for compatibility)
+    // Legacy direct payment (for backward compatibility)
     function payToHandle(
         string memory handle,
         string memory platform,
@@ -117,7 +128,7 @@ contract SocialPayEVVMIntegrated is Ownable, EIP712 {
         }
     }
 
-    // ✅ EVVM-INTEGRATED: Pay with signature using EVVM Core nonce verification
+    // EVVM: Pay with signed intent
     function payToHandleWithSignature(
         string memory handle,
         string memory platform,
@@ -129,6 +140,7 @@ contract SocialPayEVVMIntegrated is Ownable, EIP712 {
         require(block.timestamp <= deadline, "Signature expired");
         require(amount > 0, "Amount must be positive");
 
+        // Reconstruct the signed digest
         bytes32 structHash = keccak256(
             abi.encode(
                 PAYMENT_INTENT_TYPEHASH,
@@ -144,14 +156,12 @@ contract SocialPayEVVMIntegrated is Ownable, EIP712 {
         address signer = digest.recover(signature);
 
         require(signer != address(0), "Invalid signature");
+        require(!usedNonces[signer][asyncNonce], "Nonce already used");
 
-        // ✅ USE EVVM CORE FOR NONCE VERIFICATION
-        require(
-            evvmCore.verifyAsyncNonce(signer, asyncNonce),
-            "Invalid or used nonce"
-        );
-        evvmCore.incrementAsyncNonce(signer, asyncNonce);
+        // Mark nonce as used
+        usedNonces[signer][asyncNonce] = true;
 
+        // Transfer from signer to contract
         require(
             pyusd.transferFrom(signer, address(this), amount),
             "Transfer failed"
@@ -168,6 +178,74 @@ contract SocialPayEVVMIntegrated is Ownable, EIP712 {
         }
     }
 
+    // EVVM: Batch payment with signatures
+    struct PaymentIntent {
+        string handle;
+        string platform;
+        uint256 amount;
+        uint256 asyncNonce;
+        uint256 deadline;
+        bytes signature;
+    }
+
+    function batchPayToHandles(
+        PaymentIntent[] memory intents
+    ) external onlyExecutor {
+        for (uint256 i = 0; i < intents.length; i++) {
+            PaymentIntent memory intent = intents[i];
+
+            // Reconstruct the signed digest
+            bytes32 structHash = keccak256(
+                abi.encode(
+                    PAYMENT_INTENT_TYPEHASH,
+                    keccak256(bytes(intent.handle)),
+                    keccak256(bytes(intent.platform)),
+                    intent.amount,
+                    intent.asyncNonce,
+                    intent.deadline
+                )
+            );
+
+            bytes32 digest = _hashTypedDataV4(structHash);
+            address signer = digest.recover(intent.signature);
+
+            if (signer == address(0)) continue;
+            if (usedNonces[signer][intent.asyncNonce]) continue;
+            if (block.timestamp > intent.deadline) continue;
+
+            usedNonces[signer][intent.asyncNonce] = true;
+
+            // Transfer from signer
+            if (!pyusd.transferFrom(signer, address(this), intent.amount)) {
+                continue;
+            }
+
+            address wallet = handleToWallet[intent.platform][intent.handle];
+
+            if (wallet != address(0)) {
+                pyusd.transfer(wallet, intent.amount);
+                emit PaymentSent(
+                    signer,
+                    intent.platform,
+                    intent.handle,
+                    intent.amount,
+                    true
+                );
+            } else {
+                pendingBalances[intent.platform][intent.handle] += intent
+                    .amount;
+                emit PaymentSent(
+                    signer,
+                    intent.platform,
+                    intent.handle,
+                    intent.amount,
+                    false
+                );
+            }
+        }
+    }
+
+    // Claim pending balance with proof
     function claimPending(
         string memory handle,
         string memory platform,
@@ -179,6 +257,7 @@ contract SocialPayEVVMIntegrated is Ownable, EIP712 {
             "Already claimed"
         );
 
+        // Proof: user signs "SocialPay Claim: {handle} on {platform} for {address}"
         bytes32 messageHash = keccak256(
             abi.encodePacked(
                 "SocialPay Claim: ",
@@ -194,8 +273,10 @@ contract SocialPayEVVMIntegrated is Ownable, EIP712 {
             messageHash
         );
         address signer = ethSignedMessageHash.recover(proof);
+
         require(signer == msg.sender, "Invalid proof");
 
+        // Claim the handle
         handleToWallet[platform][handle] = msg.sender;
         uint256 amount = pendingBalances[platform][handle];
         pendingBalances[platform][handle] = 0;
@@ -206,6 +287,23 @@ contract SocialPayEVVMIntegrated is Ownable, EIP712 {
         emit PaymentClaimed(platform, handle, msg.sender, amount);
     }
 
+    // Helper function to convert address to string
+    function addressToString(
+        address _addr
+    ) internal pure returns (string memory) {
+        bytes32 value = bytes32(uint256(uint160(_addr)));
+        bytes memory alphabet = "0123456789abcdef";
+        bytes memory str = new bytes(42);
+        str[0] = "0";
+        str[1] = "x";
+        for (uint256 i = 0; i < 20; i++) {
+            str[2 + i * 2] = alphabet[uint8(value[i + 12] >> 4)];
+            str[3 + i * 2] = alphabet[uint8(value[i + 12] & 0x0f)];
+        }
+        return string(str);
+    }
+
+    // Admin function to help user claim (for demo/testing)
     function adminClaim(
         string memory handle,
         string memory platform,
@@ -227,21 +325,7 @@ contract SocialPayEVVMIntegrated is Ownable, EIP712 {
         emit PaymentClaimed(platform, handle, wallet, amount);
     }
 
-    function addressToString(
-        address _addr
-    ) internal pure returns (string memory) {
-        bytes32 value = bytes32(uint256(uint160(_addr)));
-        bytes memory alphabet = "0123456789abcdef";
-        bytes memory str = new bytes(42);
-        str[0] = "0";
-        str[1] = "x";
-        for (uint256 i = 0; i < 20; i++) {
-            str[2 + i * 2] = alphabet[uint8(value[i + 12] >> 4)];
-            str[3 + i * 2] = alphabet[uint8(value[i + 12] & 0x0f)];
-        }
-        return string(str);
-    }
-
+    // View functions
     function isHandleClaimed(
         string memory handle,
         string memory platform
@@ -259,5 +343,12 @@ contract SocialPayEVVMIntegrated is Ownable, EIP712 {
 
     function getDomainSeparator() external view returns (bytes32) {
         return _domainSeparatorV4();
+    }
+
+    function isNonceUsed(
+        address user,
+        uint256 nonce
+    ) external view returns (bool) {
+        return usedNonces[user][nonce];
     }
 }

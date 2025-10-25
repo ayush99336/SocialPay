@@ -1,0 +1,213 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
+import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+
+interface IEVVMCore {
+    function verifyAsyncNonce(address user, uint256 nonce) external view returns (bool);
+    function incrementAsyncNonce(address user, uint256 nonce) external;
+}
+
+interface IEVVMNameService {
+    function getHandle(address user) external view returns (string memory);
+    function isHandleRegistered(string memory handle) external view returns (bool);
+}
+
+contract SocialPayEVVMIntegrated is Ownable, EIP712 {
+    using ECDSA for bytes32;
+    using MessageHashUtils for bytes32;
+
+    IERC20 public immutable pyusd;
+    IEVVMCore public immutable evvmCore;
+    IEVVMNameService public immutable nameService;
+
+    bytes32 public constant PAYMENT_INTENT_TYPEHASH =
+        keccak256(
+            "PaymentIntent(string handle,string platform,uint256 amount,uint256 asyncNonce,uint256 deadline)"
+        );
+
+    mapping(string => mapping(string => address)) public handleToWallet;
+    mapping(string => mapping(string => uint256)) public pendingBalances;
+    mapping(address => bool) public executors;
+
+    event HandleClaimed(string indexed platform, string indexed handle, address indexed wallet);
+    event PaymentSent(address indexed from, string indexed platform, string indexed handle, uint256 amount, bool direct);
+    event PaymentClaimed(string indexed platform, string indexed handle, address indexed wallet, uint256 amount);
+    event ExecutorAdded(address indexed executor);
+    event ExecutorRemoved(address indexed executor);
+
+    constructor(
+        address _pyusd,
+        address _evvmCore,
+        address _nameService
+    ) Ownable(msg.sender) EIP712("SocialPayEVVM", "1") {
+        pyusd = IERC20(_pyusd);
+        evvmCore = IEVVMCore(_evvmCore);
+        nameService = IEVVMNameService(_nameService);
+        executors[msg.sender] = true;
+    }
+
+    modifier onlyExecutor() {
+        require(executors[msg.sender] || msg.sender == owner(), "Not authorized");
+        _;
+    }
+
+    function addExecutor(address executor) external onlyOwner {
+        executors[executor] = true;
+        emit ExecutorAdded(executor);
+    }
+
+    function removeExecutor(address executor) external onlyOwner {
+        executors[executor] = false;
+        emit ExecutorRemoved(executor);
+    }
+
+    // Legacy payment (for compatibility)
+    function payToHandle(
+        string memory handle,
+        string memory platform,
+        uint256 amount,
+        address executor
+    ) external returns (bool) {
+        require(amount > 0, "Amount must be positive");
+        require(pyusd.transferFrom(msg.sender, address(this), amount), "Transfer failed");
+
+        address wallet = handleToWallet[platform][handle];
+
+        if (wallet != address(0)) {
+            require(pyusd.transfer(wallet, amount), "Direct transfer failed");
+            emit PaymentSent(msg.sender, platform, handle, amount, true);
+            return true;
+        } else {
+            pendingBalances[platform][handle] += amount;
+            emit PaymentSent(msg.sender, platform, handle, amount, false);
+            return false;
+        }
+    }
+
+    // ✅ EVVM-INTEGRATED: Pay with signature using EVVM Core nonce verification
+    function payToHandleWithSignature(
+        string memory handle,
+        string memory platform,
+        uint256 amount,
+        uint256 asyncNonce,
+        uint256 deadline,
+        bytes memory signature
+    ) external onlyExecutor {
+        require(block.timestamp <= deadline, "Signature expired");
+        require(amount > 0, "Amount must be positive");
+
+        bytes32 structHash = keccak256(
+            abi.encode(
+                PAYMENT_INTENT_TYPEHASH,
+                keccak256(bytes(handle)),
+                keccak256(bytes(platform)),
+                amount,
+                asyncNonce,
+                deadline
+            )
+        );
+
+        bytes32 digest = _hashTypedDataV4(structHash);
+        address signer = digest.recover(signature);
+
+        require(signer != address(0), "Invalid signature");
+        
+        // ✅ USE EVVM CORE FOR NONCE VERIFICATION
+        require(evvmCore.verifyAsyncNonce(signer, asyncNonce), "Invalid or used nonce");
+        evvmCore.incrementAsyncNonce(signer, asyncNonce);
+
+        require(pyusd.transferFrom(signer, address(this), amount), "Transfer failed");
+
+        address wallet = handleToWallet[platform][handle];
+
+        if (wallet != address(0)) {
+            require(pyusd.transfer(wallet, amount), "Direct transfer failed");
+            emit PaymentSent(signer, platform, handle, amount, true);
+        } else {
+            pendingBalances[platform][handle] += amount;
+            emit PaymentSent(signer, platform, handle, amount, false);
+        }
+    }
+
+    function claimPending(
+        string memory handle,
+        string memory platform,
+        bytes memory proof
+    ) external {
+        require(pendingBalances[platform][handle] > 0, "No pending balance");
+        require(handleToWallet[platform][handle] == address(0), "Already claimed");
+
+        bytes32 messageHash = keccak256(
+            abi.encodePacked(
+                "SocialPay Claim: ",
+                handle,
+                " on ",
+                platform,
+                " for ",
+                addressToString(msg.sender)
+            )
+        );
+
+        bytes32 ethSignedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
+        address signer = ethSignedMessageHash.recover(proof);
+        require(signer == msg.sender, "Invalid proof");
+
+        handleToWallet[platform][handle] = msg.sender;
+        uint256 amount = pendingBalances[platform][handle];
+        pendingBalances[platform][handle] = 0;
+
+        require(pyusd.transfer(msg.sender, amount), "Claim transfer failed");
+
+        emit HandleClaimed(platform, handle, msg.sender);
+        emit PaymentClaimed(platform, handle, msg.sender, amount);
+    }
+
+    function adminClaim(
+        string memory handle,
+        string memory platform,
+        address wallet
+    ) external onlyOwner {
+        require(pendingBalances[platform][handle] > 0, "No pending balance");
+        require(handleToWallet[platform][handle] == address(0), "Already claimed");
+
+        handleToWallet[platform][handle] = wallet;
+        uint256 amount = pendingBalances[platform][handle];
+        pendingBalances[platform][handle] = 0;
+
+        require(pyusd.transfer(wallet, amount), "Claim transfer failed");
+
+        emit HandleClaimed(platform, handle, wallet);
+        emit PaymentClaimed(platform, handle, wallet, amount);
+    }
+
+    function addressToString(address _addr) internal pure returns (string memory) {
+        bytes32 value = bytes32(uint256(uint160(_addr)));
+        bytes memory alphabet = "0123456789abcdef";
+        bytes memory str = new bytes(42);
+        str[0] = "0";
+        str[1] = "x";
+        for (uint256 i = 0; i < 20; i++) {
+            str[2 + i * 2] = alphabet[uint8(value[i + 12] >> 4)];
+            str[3 + i * 2] = alphabet[uint8(value[i + 12] & 0x0f)];
+        }
+        return string(str);
+    }
+
+    function isHandleClaimed(string memory handle, string memory platform) external view returns (bool, address) {
+        address wallet = handleToWallet[platform][handle];
+        return (wallet != address(0), wallet);
+    }
+
+    function getPendingBalance(string memory handle, string memory platform) external view returns (uint256) {
+        return pendingBalances[platform][handle];
+    }
+
+    function getDomainSeparator() external view returns (bytes32) {
+        return _domainSeparatorV4();
+    }
+}
