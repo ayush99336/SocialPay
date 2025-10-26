@@ -2,226 +2,48 @@
   {
     "type": "constructor",
     "inputs": [
-      {
-        "name": "_pyusd",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "_evvmCore",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "_nameService",
-        "type": "address",
-        "internalType": "address"
-      }
+      {"name": "_pyusd", "type": "address", "internalType": "address"},
+      {"name": "_evvmCore", "type": "address", "internalType": "address"},
+      {"name": "_nameService", "type": "address", "internalType": "address"}
     ],
     "stateMutability": "nonpayable"
   },
   {
     "type": "function",
-    "name": "PAYMENT_INTENT_TYPEHASH",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
+    "name": "payToHandle",
+    "inputs": [
+      {"name": "handle", "type": "string", "internalType": "string"},
+      {"name": "platform", "type": "string", "internalType": "string"},
+      {"name": "amount", "type": "uint256", "internalType": "uint256"},
+      {"name": "executor", "type": "address", "internalType": "address"}
     ],
-    "stateMutability": "view"
+    "outputs": [{"name": "", "type": "bool", "internalType": "bool"}],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
-    "name": "addExecutor",
+    "name": "payToHandleWithSignature",
     "inputs": [
-      {
-        "name": "executor",
-        "type": "address",
-        "internalType": "address"
-      }
+      {"name": "handle", "type": "string", "internalType": "string"},
+      {"name": "platform", "type": "string", "internalType": "string"},
+      {"name": "amount", "type": "uint256", "internalType": "uint256"},
+      {"name": "asyncNonce", "type": "uint256", "internalType": "uint256"},
+      {"name": "deadline", "type": "uint256", "internalType": "uint256"},
+      {"name": "signature", "type": "bytes", "internalType": "bytes"}
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
   },
   {
     "type": "function",
-    "name": "adminClaim",
+    "name": "isHandleClaimed",
     "inputs": [
-      {
-        "name": "handle",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "platform",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "wallet",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "batchPayToHandles",
-    "inputs": [
-      {
-        "name": "intents",
-        "type": "tuple[]",
-        "internalType": "struct SocialPayEVVM.PaymentIntent[]",
-        "components": [
-          {
-            "name": "handle",
-            "type": "string",
-            "internalType": "string"
-          },
-          {
-            "name": "platform",
-            "type": "string",
-            "internalType": "string"
-          },
-          {
-            "name": "amount",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "asyncNonce",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "deadline",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "signature",
-            "type": "bytes",
-            "internalType": "bytes"
-          }
-        ]
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "claimPending",
-    "inputs": [
-      {
-        "name": "handle",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "platform",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "proof",
-        "type": "bytes",
-        "internalType": "bytes"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "eip712Domain",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "fields",
-        "type": "bytes1",
-        "internalType": "bytes1"
-      },
-      {
-        "name": "name",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "version",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "chainId",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "verifyingContract",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "salt",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "extensions",
-        "type": "uint256[]",
-        "internalType": "uint256[]"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "evvmCore",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "contract IEVVMCore"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "executors",
-    "inputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      }
+      {"name": "handle", "type": "string", "internalType": "string"},
+      {"name": "platform", "type": "string", "internalType": "string"}
     ],
     "outputs": [
-      {
-        "name": "",
-        "type": "bool",
-        "internalType": "bool"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "getDomainSeparator",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
+      {"name": "", "type": "bool", "internalType": "bool"},
+      {"name": "", "type": "address", "internalType": "address"}
     ],
     "stateMutability": "view"
   },
@@ -229,502 +51,36 @@
     "type": "function",
     "name": "getPendingBalance",
     "inputs": [
-      {
-        "name": "handle",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "platform",
-        "type": "string",
-        "internalType": "string"
-      }
+      {"name": "handle", "type": "string", "internalType": "string"},
+      {"name": "platform", "type": "string", "internalType": "string"}
     ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
+    "outputs": [{"name": "", "type": "uint256", "internalType": "uint256"}],
     "stateMutability": "view"
   },
   {
     "type": "function",
-    "name": "handleToWallet",
-    "inputs": [
-      {
-        "name": "",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "",
-        "type": "string",
-        "internalType": "string"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "isHandleClaimed",
-    "inputs": [
-      {
-        "name": "handle",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "platform",
-        "type": "string",
-        "internalType": "string"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bool",
-        "internalType": "bool"
-      },
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "isNonceUsed",
-    "inputs": [
-      {
-        "name": "user",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "nonce",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bool",
-        "internalType": "bool"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "nameService",
+    "name": "getDomainSeparator",
     "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "contract IEVVMNameService"
-      }
-    ],
+    "outputs": [{"name": "", "type": "bytes32", "internalType": "bytes32"}],
     "stateMutability": "view"
   },
   {
     "type": "function",
-    "name": "owner",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "payToHandle",
-    "inputs": [
-      {
-        "name": "handle",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "platform",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "amount",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "executor",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bool",
-        "internalType": "bool"
-      }
-    ],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "payToHandleWithSignature",
-    "inputs": [
-      {
-        "name": "handle",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "platform",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "amount",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "asyncNonce",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "deadline",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "signature",
-        "type": "bytes",
-        "internalType": "bytes"
-      }
-    ],
+    "name": "addExecutor",
+    "inputs": [{"name": "executor", "type": "address", "internalType": "address"}],
     "outputs": [],
     "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "pendingBalances",
-    "inputs": [
-      {
-        "name": "",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "",
-        "type": "string",
-        "internalType": "string"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "pyusd",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "contract IERC20"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "removeExecutor",
-    "inputs": [
-      {
-        "name": "executor",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "renounceOwnership",
-    "inputs": [],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "transferOwnership",
-    "inputs": [
-      {
-        "name": "newOwner",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "usedNonces",
-    "inputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bool",
-        "internalType": "bool"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "event",
-    "name": "EIP712DomainChanged",
-    "inputs": [],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "ExecutorAdded",
-    "inputs": [
-      {
-        "name": "executor",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "ExecutorRemoved",
-    "inputs": [
-      {
-        "name": "executor",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "HandleClaimed",
-    "inputs": [
-      {
-        "name": "platform",
-        "type": "string",
-        "indexed": true,
-        "internalType": "string"
-      },
-      {
-        "name": "handle",
-        "type": "string",
-        "indexed": true,
-        "internalType": "string"
-      },
-      {
-        "name": "wallet",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "OwnershipTransferred",
-    "inputs": [
-      {
-        "name": "previousOwner",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "newOwner",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "PaymentClaimed",
-    "inputs": [
-      {
-        "name": "platform",
-        "type": "string",
-        "indexed": true,
-        "internalType": "string"
-      },
-      {
-        "name": "handle",
-        "type": "string",
-        "indexed": true,
-        "internalType": "string"
-      },
-      {
-        "name": "wallet",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "amount",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
-    ],
-    "anonymous": false
   },
   {
     "type": "event",
     "name": "PaymentSent",
     "inputs": [
-      {
-        "name": "from",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "platform",
-        "type": "string",
-        "indexed": true,
-        "internalType": "string"
-      },
-      {
-        "name": "handle",
-        "type": "string",
-        "indexed": true,
-        "internalType": "string"
-      },
-      {
-        "name": "amount",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "direct",
-        "type": "bool",
-        "indexed": false,
-        "internalType": "bool"
-      }
+      {"name": "from", "type": "address", "indexed": true},
+      {"name": "platform", "type": "string", "indexed": true},
+      {"name": "handle", "type": "string", "indexed": true},
+      {"name": "amount", "type": "uint256", "indexed": false},
+      {"name": "direct", "type": "bool", "indexed": false}
     ],
     "anonymous": false
-  },
-  {
-    "type": "error",
-    "name": "ECDSAInvalidSignature",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "ECDSAInvalidSignatureLength",
-    "inputs": [
-      {
-        "name": "length",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "ECDSAInvalidSignatureS",
-    "inputs": [
-      {
-        "name": "s",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "InvalidShortString",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "OwnableInvalidOwner",
-    "inputs": [
-      {
-        "name": "owner",
-        "type": "address",
-        "internalType": "address"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "OwnableUnauthorizedAccount",
-    "inputs": [
-      {
-        "name": "account",
-        "type": "address",
-        "internalType": "address"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "StringTooLong",
-    "inputs": [
-      {
-        "name": "str",
-        "type": "string",
-        "internalType": "string"
-      }
-    ]
   }
 ]

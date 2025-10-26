@@ -1,0 +1,10 @@
+      console.error('Payment error:', error);
+      await sendMessage(chatId,
+        `❌ <b>Payment failed</b>\n\n` +
+        `Error: ${error.reason || error.message}\n\n` +
+        '<b>Checklist:</b>\n' +
+        '• Do you have enough PYUSD?\n' +
+        '• Have you approved the contract?\n' +
+        '• Do you have Sepolia ETH for gas?\n\n' +
+        `Contract: <code>${config.socialPayContract}</code>`
+      );
